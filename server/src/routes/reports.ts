@@ -1,0 +1,22 @@
+import { Router, Response } from 'express';
+import { z } from 'zod';
+import mongoose from 'mongoose';
+import { asyncHandler, authenticate, requirePermission } from '../middleware/auth';
+import * as R from '../services/reports.service';
+import { dashboard } from '../services/dashboard.service';
+const oid = z.string().refine(mongoose.isValidObjectId, 'Invalid id');
+const range = z.object({ from: z.coerce.date().default(() => new Date(Date.now() - 30 * 86400000)), to: z.coerce.date().default(() => new Date()) })
+  .refine(r => r.from <= r.to, 'from must be before to');
+const ok = (res: Response, data: unknown) => res.json({ success: true, data });
+export const reports = Router();
+reports.use(authenticate);
+reports.get('/dashboard', asyncHandler(async (req, res) => ok(res, await dashboard(req.user!.role))));
+const rp = requirePermission('reports:view');
+reports.get('/reports/fees/collection', rp, asyncHandler(async (req, res) => ok(res, await R.feeCollection(range.parse(req.query), z.enum(['day', 'month']).default('day').parse(req.query.by)))));
+reports.get('/reports/fees/defaulters', rp, asyncHandler(async (req, res) => { const q = z.object({ page: z.coerce.number().int().min(1).default(1), limit: z.coerce.number().int().min(1).max(100).default(20) }).parse(req.query); ok(res, await R.defaulters(q.page, q.limit)); }));
+reports.get('/reports/fees/students/:id/ledger', rp, asyncHandler(async (req, res) => ok(res, await R.studentLedger(oid.parse(req.params.id)))));
+reports.get('/reports/accounting/daybook', rp, asyncHandler(async (req, res) => ok(res, await R.daybook(range.parse(req.query)))));
+reports.get('/reports/accounting/ledger/:code', rp, asyncHandler(async (req, res) => ok(res, await R.accountLedger(z.string().min(1).parse(req.params.code), range.parse(req.query)))));
+reports.get('/reports/accounting/trial-balance', rp, asyncHandler(async (_req, res) => ok(res, await R.trialBalance())));
+reports.get('/reports/donations', rp, asyncHandler(async (req, res) => ok(res, await R.donationReport(z.enum(['day', 'month', 'year', 'donor', 'category', 'mode']).parse(req.query.by), range.parse(req.query)))));
+reports.get('/reports/library/fines', rp, asyncHandler(async (req, res) => ok(res, await R.libraryFines(range.parse(req.query)))));
