@@ -3,21 +3,17 @@ import { ReactNode, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
-import { DEMO_MODE } from '@/lib/demo';
 const base = [{ href: '/dashboard', label: 'Dashboard' }, { href: '/students', label: 'Students' }, { href: '/fees', label: 'Fee collection' }];
 const adminNav = [{ href: '/settings', label: 'Settings' }];
 export default function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter(); const path = usePathname();
-  const [user, setUser] = useState<{ username: string; role: string } | null>(
-    DEMO_MODE ? { username: 'Demo Administrator', role: 'admin' } : null
-  );
+  const [user, setUser] = useState<{ username: string; role: string } | null>(null);
   useEffect(() => {
-    if (DEMO_MODE) return; // skip /auth/me call in demo mode
     api<{ username: string; role: string }>('/auth/me').then(setUser).catch(() => router.replace('/login'));
   }, [router]);
   const nav = user && ['admin', 'super_admin'].includes(user.role) ? [...base, ...adminNav] : base;
   const logout = async () => {
-    if (!DEMO_MODE) await api('/auth/logout', { method: 'POST' }).catch(() => undefined);
+    await api('/auth/logout', { method: 'POST' }).catch(() => undefined);
     router.replace('/login');
   };
   if (!user) return <div className="p-8 text-sm text-neutral-500">Loading…</div>;
@@ -25,15 +21,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen flex-col md:flex-row">
       <aside className="print:hidden bg-navy p-4 text-white md:w-56">
         <div className="mb-4 text-lg font-semibold">Madarsa <span className="text-gold">ERP</span></div>
-        {DEMO_MODE && <div className="mb-3 rounded bg-gold/20 px-2 py-1 text-center text-xs font-semibold text-gold">⚠ DEMO MODE</div>}
         <nav className="flex gap-2 md:flex-col" aria-label="Main">{nav.map(n => <Link key={n.href} href={n.href} className={`rounded px-3 py-2 text-sm ${path.startsWith(n.href) ? 'bg-white/10 text-gold' : 'hover:bg-white/5'}`}>{n.label}</Link>)}</nav>
       </aside>
       <div className="flex-1">
         <header className="print:hidden flex items-center justify-between border-b bg-white px-6 py-3 text-sm">
-          <span className="flex items-center gap-2">
-            <span className="text-neutral-500">{path.split('/')[1]}</span>
-            {DEMO_MODE && <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">Demo Mode — Sample data only</span>}
-          </span>
+          <span className="text-neutral-500">{path.split('/')[1]}</span>
           <span className="flex items-center gap-3">{user.username} <em className="text-xs text-neutral-500">({user.role})</em><button className="btn-ghost" onClick={logout}>Logout</button></span></header>
         <main className="p-6">{children}</main>
       </div>

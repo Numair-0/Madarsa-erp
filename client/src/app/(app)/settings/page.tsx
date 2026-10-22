@@ -4,7 +4,6 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { api, ApiError } from '@/lib/api';
-import { DEMO_MODE } from '@/lib/demo';
 const schema = z.object({ name: z.string().min(2, 'Name is required'), address: z.string().optional(), phone: z.string().optional(), email: z.string().email('Invalid email').optional().or(z.literal('')),
   academicSession: z.string().optional(), receiptFooter: z.string().optional(), reportHeader: z.string().optional(), reportFooter: z.string().optional() });
 type F = z.infer<typeof schema>;
@@ -15,16 +14,11 @@ export default function Settings() {
   useEffect(() => { api<F>('/settings').then(s => reset(Object.fromEntries(FIELDS.map(([k]) => [k, s[k] ?? '']))  as F)).catch(e => setMsg({ ok: false, text: e.message })); }, [reset]);
   const onSubmit = async (v: F) => {
     setMsg(null);
-    if (DEMO_MODE) {
-      setMsg({ ok: true, text: 'Demo: Settings changes are simulated. No real data was saved.' });
-      return;
-    }
     try { await api('/settings', { method: 'PUT', json: Object.fromEntries(Object.entries(v).filter(([k, x]) => x !== '' || k === 'email')) }); setMsg({ ok: true, text: 'Settings saved.' }); }
     catch (e) { setMsg({ ok: false, text: e instanceof ApiError ? e.message : 'Cannot reach server' }); }
   };
   return (
     <div className="max-w-2xl space-y-4"><h1 className="text-xl font-semibold text-navy">Institution settings</h1>
-      {DEMO_MODE && <p className="rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">Demo Mode — Changes are simulated. No real settings are modified.</p>}
       <form onSubmit={handleSubmit(onSubmit)} className="card space-y-4" noValidate>
         {FIELDS.map(([k, label]) => <div key={k}><label htmlFor={k} className="mb-1 block text-sm font-medium">{label}</label><input id={k} className="input" {...register(k)} />{errors[k] && <p role="alert" className="mt-1 text-xs text-red-600">{errors[k]?.message}</p>}</div>)}
         {msg && <p role={msg.ok ? 'status' : 'alert'} className={`rounded p-2 text-sm ${msg.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{msg.text}</p>}
